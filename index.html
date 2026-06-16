@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Katrina Caron's Fund for Dummies — Portfolio Dashboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f9f9f7; color: #1a1a1a; min-height: 100vh; }
+.header { background: #fff; border-bottom: 1px solid #e8e8e6; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+.header .tagline { font-size: 12px; color: #999; margin-top: 2px; }
+.header-right { text-align: right; font-size: 12px; color: #aaa; }
+.badge { display: inline-block; font-size: 11px; background: #f0f0ee; color: #888; padding: 3px 8px; border-radius: 4px; margin-top: 4px; }
+.main { max-width: 1080px; margin: 0 auto; padding: 24px 24px 48px; }
+.spinner-wrap { text-align: center; padding: 80px 20px; color: #bbb; }
+.spinner { width: 32px; height: 32px; border: 3px solid #e8e8e8; border-top-color: #534AB7; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.banner { border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; font-size: 13px; display: none; }
+.banner.pending { background:#f9f6e8; border:1px solid #e8d88a; color:#7a6a10; }
+.banner.active  { background:#eef8f1; border:1px solid #a3d9b1; color:#1a6e35; }
+.banner.final   { background:#eef3fb; border:1px solid #a3bde8; color:#1a3d7a; }
+.grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+.card { background:#fff; border:1px solid #ebebea; border-radius:10px; padding:16px 18px; }
+.clabel { font-size:11px; color:#aaa; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+.cval { font-size:26px; font-weight:500; letter-spacing:-.5px; line-height:1; }
+.csub { font-size:11px; color:#bbb; margin-top:6px; }
+.pos { color:#16a34a; } .neg { color:#dc2626; } .neu { color:#1a1a1a; }
+.stitle { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:#aaa; margin-bottom:12px; }
+.tcard { background:#fff; border:1px solid #ebebea; border-radius:10px; overflow:hidden; margin-bottom:24px; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+thead th { background:#fafaf9; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:#bbb; padding:10px 16px; border-bottom:1px solid #ebebea; text-align:right; white-space:nowrap; }
+thead th:first-child, thead th:nth-child(2) { text-align:left; }
+tbody td { padding:13px 16px; border-bottom:1px solid #f5f5f4; text-align:right; vertical-align:middle; }
+tbody td:first-child { text-align:left; }
+tbody td:nth-child(2) { text-align:left; }
+tbody tr:last-child td { border-bottom:none; }
+tbody tr:hover { background:#fafaf9; }
+.tk { font-weight:600; font-size:13px; }
+.cn { font-size:11px; color:#bbb; margin-top:1px; }
+.sbadge { display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:4px; white-space:nowrap; }
+.retcell { font-weight:600; }
+.dim { color:#ccc; font-style:italic; font-size:12px; }
+.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+.ccrd { background:#fff; border:1px solid #ebebea; border-radius:10px; padding:20px; }
+.cwrap { position:relative; height:240px; margin-top:8px; }
+.cloading { display:flex; align-items:center; justify-content:center; height:240px; color:#ddd; font-size:12px; }
+.mandate { background:#fff; border:1px solid #ebebea; border-radius:10px; padding:20px 24px; margin-bottom:24px; display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.mi-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:#bbb; margin-bottom:4px; }
+.mi-val { font-size:13px; color:#333; line-height:1.5; }
+.legend { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:10px; }
+.ldot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+.li { display:flex; align-items:center; gap:5px; font-size:11px; color:#888; }
+footer { font-size:11px; color:#ccc; line-height:1.7; padding-top:8px; border-top:1px solid #f0f0ee; }
+.tab-toggle { display:flex; border:1px solid #e8e8e6; border-radius:6px; overflow:hidden; flex-shrink:0; }
+.tab-btn { font-size:11px; padding:4px 11px; border:none; background:transparent; color:#aaa; cursor:pointer; line-height:1.5; transition:background 0.15s,color 0.15s; }
+.tab-btn.active { background:#534AB7; color:#fff; }
+.tab-btn:hover:not(.active) { background:#f5f5f4; color:#666; }
+@media(max-width:700px){.grid4{grid-template-columns:repeat(2,1fr)}.charts-row{grid-template-columns:1fr}.mandate{grid-template-columns:repeat(2,1fr)}.header{padding:16px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Katrina Caron's Fund for Dummies</h1>
+    <div class="tagline">AFM 241 Simulated Fund &nbsp;·&nbsp; Holding Period Jun 26 – Jul 24, 2026</div>
+  </div>
+  <div class="header-right">
+    <div id="as-of">Loading…</div>
+    <div class="badge">Data: Finnhub (real-time)</div>
+  </div>
+</div>
+
+<div class="main">
+  <div id="loader"><div class="spinner-wrap"><div class="spinner"></div><div>Fetching live prices…</div></div></div>
+  <div id="content" style="display:none">
+
+    <div id="banner" class="banner"></div>
+
+    <div class="stitle" style="margin-top:4px">Fund Mandate</div>
+    <div class="mandate">
+      <div><div class="mi-label">Capital</div><div class="mi-val">$1,000,000 USD</div></div>
+      <div><div class="mi-label">Risk Tolerance</div><div class="mi-val">Medium</div></div>
+      <div><div class="mi-label">Strategy</div><div class="mi-val">Balanced growth, multi-sector diversification</div></div>
+      <div><div class="mi-label">Holdings</div><div class="mi-val">8 stocks across 5 sectors</div></div>
+      <div><div class="mi-label">Cash Target</div><div class="mi-val">$50,000 (5%)</div></div>
+      <div><div class="mi-label">Exclusions</div><div class="mi-val">TSLA (CEO controversy), META (privacy)</div></div>
+    </div>
+
+    <div class="stitle">Portfolio Summary</div>
+    <div class="grid4">
+      <div class="card"><div class="clabel">Invested Value</div><div class="cval neu" id="c-inv">—</div><div class="csub">8 equity positions (USD)</div></div>
+      <div class="card"><div class="clabel">Total Return</div><div class="cval neu" id="c-ret">—</div><div class="csub" id="c-ret-sub">Tracking begins Jun 26</div></div>
+      <div class="card"><div class="clabel">Cash Position</div><div class="cval neu">$50,000</div><div class="csub">5.0% of capital</div></div>
+      <div class="card"><div class="clabel">Net Worth</div><div class="cval neu" id="c-nw">—</div><div class="csub" id="c-nw-sub">equity + cash</div></div>
+    </div>
+
+    <div class="stitle">Holdings</div>
+    <div class="tcard">
+      <table>
+        <thead><tr>
+          <th>Ticker</th><th>Sector</th><th>Shares</th>
+          <th>Entry Price</th><th id="ph">Live Price</th>
+          <th>Today Chg</th><th>Allocation</th><th>Weight</th><th>Return</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="stitle">Analysis</div>
+    <div class="charts-row">
+      <div class="ccrd">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="stitle" style="margin-bottom:0" id="left-chart-title">Sector Allocation</div>
+          <div class="tab-toggle">
+            <button class="tab-btn active" id="tab-alloc" onclick="switchTab('alloc')">Allocation</button>
+            <button class="tab-btn" id="tab-perf" onclick="switchTab('perf')">Sector Returns</button>
+          </div>
+        </div>
+        <div class="legend" id="alloc-legend">
+          <span class="li"><span class="ldot" style="background:#534AB7"></span>Technology 19%</span>
+          <span class="li"><span class="ldot" style="background:#0F6E56"></span>Financials 19%</span>
+          <span class="li"><span class="ldot" style="background:#D85A30"></span>Consumer Staples 19%</span>
+          <span class="li"><span class="ldot" style="background:#185FA5"></span>Healthcare 19%</span>
+          <span class="li"><span class="ldot" style="background:#BA7517"></span>Industrials 19%</span>
+          <span class="li"><span class="ldot" style="background:#888780"></span>Cash 5%</span>
+        </div>
+        <div id="sw" class="cwrap"><div class="cloading">Loading chart…</div></div>
+        <div id="sp" class="cwrap" style="display:none"><div class="cloading">Awaiting price data…</div></div>
+      </div>
+      <div class="ccrd">
+        <div class="stitle" id="bt">Daily Change by Stock (%)</div>
+        <div id="bw" class="cwrap"><div class="cloading">Loading chart…</div></div>
+      </div>
+    </div>
+
+    <footer>
+      RY (Royal Bank of Canada) and CNR (Canadian National Railway) use NYSE listings (RY, CNI) priced in USD.
+      Entry prices recorded at Jun 26, 2026 market close. Final evaluation at Jul 24, 2026 market close.
+      Live prices: Finnhub. For AFM 241 simulation purposes only — not investment advice.
+    </footer>
+  </div>
+</div>
+
+<script>
+const KEY = 'd8onippr01qn89hsefsgd8onippr01qn89hseft0';
+
+// ── Stored prices — updated automatically by GitHub Action on Jun 26 and Jul 24 ──
+const ENTRY = { MSFT:null, AAPL:null, NVDA:null, JPM:null, RY:null, COST:null, JNJ:null, CNR:null };
+const EVAL  = { MSFT:null, AAPL:null, NVDA:null, JPM:null, RY:null, COST:null, JNJ:null, CNR:null };
+
+const H = [
+  { t:'MSFT', s:'MSFT', n:'Microsoft Corp.',           sh:160,  sec:'Technology',       al:63333  },
+  { t:'AAPL', s:'AAPL', n:'Apple Inc.',                sh:212,  sec:'Technology',       al:63333  },
+  { t:'NVDA', s:'NVDA', n:'NVIDIA Corp.',              sh:303,  sec:'Technology',       al:63333  },
+  { t:'JPM',  s:'JPM',  n:'JPMorgan Chase & Co.',      sh:288,  sec:'Financials',       al:95000  },
+  { t:'RY',   s:'RY',   n:'Royal Bank of Canada',      sh:460,  sec:'Financials',       al:95000  },
+  { t:'COST', s:'COST', n:'Costco Wholesale Corp.',    sh:192,  sec:'Consumer Staples', al:190000 },
+  { t:'JNJ',  s:'JNJ',  n:'Johnson & Johnson',         sh:815,  sec:'Healthcare',       al:190000 },
+  { t:'CNR',  s:'CNI',  n:'Canadian National Railway', sh:1571, sec:'Industrials',      al:190000 },
+];
+
+const SC = { Technology:'#534AB7', Financials:'#0F6E56', 'Consumer Staples':'#D85A30', Healthcare:'#185FA5', Industrials:'#BA7517', Cash:'#888780' };
+
+const f$ = n => n==null?'—':'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fK = n => n==null?'—':(n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0});
+const fP = (n,p) => n==null?'—':(n>=0&&p?'+':'')+n.toFixed(2)+'%';
+
+async function quote(sym) {
+  try {
+    const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${KEY}`, { signal: AbortSignal.timeout(5000) });
+    const d = await r.json();
+    return d&&d.c&&d.c!==0 ? { p:d.c, dp:d.dp } : { p:null, dp:null };
+  } catch { return { p:null, dp:null }; }
+}
+
+function loadChartJS(cb) {
+  if (window.Chart) { cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js';
+  s.onload = cb; s.onerror = () => {};
+  document.head.appendChild(s);
+}
+
+let _sectorData = [];
+
+function switchTab(tab) {
+  const isAlloc = tab === 'alloc';
+  document.getElementById('tab-alloc').className = 'tab-btn' + (isAlloc ? ' active' : '');
+  document.getElementById('tab-perf').className  = 'tab-btn' + (!isAlloc ? ' active' : '');
+  document.getElementById('sw').style.display            = isAlloc ? '' : 'none';
+  document.getElementById('sp').style.display            = isAlloc ? 'none' : '';
+  document.getElementById('alloc-legend').style.display  = isAlloc ? '' : 'none';
+  document.getElementById('left-chart-title').textContent = isAlloc ? 'Sector Allocation' : 'Sector Returns';
+}
+
+async function run() {
+  const quotes = await Promise.all(H.map(h => quote(h.s)));
+
+  const isFinal  = Object.values(EVAL).some(v => v != null);
+  const isActive = Object.values(ENTRY).some(v => v != null);
+
+  // Banner
+  const bn = document.getElementById('banner');
+  bn.style.display = 'block';
+  if (isFinal) {
+    bn.className = 'banner final';
+    bn.textContent = '✦ Evaluation period ended Jul 24, 2026 — final returns shown.';
+  } else if (isActive) {
+    bn.className = 'banner active';
+    bn.textContent = '● Tracking active — returns vs. Jun 26 closing prices.';
+  } else {
+    bn.className = 'banner pending';
+    bn.textContent = '○ Holding period begins Jun 26, 2026. Live prices shown for reference — return tracking has not started.';
+  }
+
+  const now = new Date();
+  document.getElementById('as-of').textContent = isFinal ? 'Final: Jul 24, 2026'
+    : 'Live · ' + now.toLocaleString('en-CA',{timeZone:'America/Toronto',dateStyle:'medium',timeStyle:'short'}) + ' ET';
+  document.getElementById('ph').textContent = isFinal ? 'Price Jul 24' : 'Live Price';
+
+  let totCur = 0, totEnt = 0;
+  const barD = [];
+  const sectorMap = {};
+  const tbody = document.getElementById('tbody');
+
+  H.forEach((h, i) => {
+    const { p, dp } = quotes[i];
+    const ep = ENTRY[h.t], ev = EVAL[h.t];
+    const disp = isFinal ? ev : p;
+    const curUSD = disp != null ? h.sh * disp : null;
+    const entUSD = ep   != null ? h.sh * ep   : h.al;
+    const ret    = curUSD != null && ep != null ? ((curUSD - entUSD) / entUSD * 100) : null;
+
+    totCur += curUSD ?? h.al;
+    totEnt += entUSD;
+
+    const bar = isFinal ? ret : dp;
+    if (bar != null) barD.push({ t: h.t, v: bar });
+
+    // Sector aggregation — use real return if available, daily change otherwise
+    const secVal = ret != null ? ret : (!isActive && !isFinal ? dp : null);
+    if (!sectorMap[h.sec]) sectorMap[h.sec] = { wsum: 0, wtotal: 0 };
+    if (secVal != null) { sectorMap[h.sec].wsum += secVal * h.al; sectorMap[h.sec].wtotal += h.al; }
+
+    const c = SC[h.sec]||'#888', w = ((h.al/950000)*100).toFixed(1)+'%';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><div class="tk">${h.t}</div><div class="cn">${h.n}</div></td>
+      <td><span class="sbadge" style="background:${c}18;color:${c}">${h.sec}</span></td>
+      <td>${h.sh.toLocaleString()}</td>
+      <td>${ep!=null?f$(ep):'<span class="dim">Set Jun 26</span>'}</td>
+      <td>${disp!=null?f$(disp):'<span class="dim">—</span>'}</td>
+      <td class="${(dp??0)>=0?'pos':'neg'}">${isFinal?'<span class="dim">—</span>':fP(dp,true)}</td>
+      <td>${fK(h.al)}</td><td>${w}</td>
+      <td class="retcell ${(ret??0)>=0?'pos':'neg'}">${fP(ret,true)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  _sectorData = Object.entries(sectorMap)
+    .map(([sec, d]) => ({ sec, ret: d.wtotal > 0 ? d.wsum / d.wtotal : null, color: SC[sec] }))
+    .filter(d => d.ret != null);
+
+  const totRet  = totCur - totEnt;
+  const totRetP = totEnt > 0 ? (totRet / totEnt * 100) : 0;
+  document.getElementById('c-inv').textContent = fK(totCur);
+  const re = document.getElementById('c-ret');
+  if (isActive || isFinal) {
+    re.textContent = fP(totRetP, true);
+    re.className = 'cval ' + (totRetP >= 0 ? 'pos' : 'neg');
+    document.getElementById('c-ret-sub').textContent = fK(totRet) + ' absolute';
+  }
+  document.getElementById('c-nw').textContent = fK(totCur + 50000);
+  if (isFinal) document.getElementById('c-nw-sub').textContent = 'Final net worth Jul 24';
+
+  // Show content immediately — don't wait for charts
+  document.getElementById('loader').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+
+  loadChartJS(() => {
+    if (!window.Chart) return;
+
+    // Sector allocation doughnut
+    document.getElementById('sw').innerHTML = '<canvas id="sc"></canvas>';
+    new Chart(document.getElementById('sc'), {
+      type:'doughnut',
+      data:{ labels:['Technology','Financials','Consumer Staples','Healthcare','Industrials','Cash'],
+             datasets:[{data:[19,19,19,19,19,5],backgroundColor:['#534AB7','#0F6E56','#D85A30','#185FA5','#BA7517','#888780'],borderWidth:2,borderColor:'#fff'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'55%'}
+    });
+
+    // Sector returns horizontal bar
+    if (_sectorData.length) {
+      const sorted = [..._sectorData].sort((a,b) => b.ret - a.ret);
+      document.getElementById('sp').innerHTML = '<canvas id="spc"></canvas>';
+      new Chart(document.getElementById('spc'), {
+        type:'bar',
+        data:{ labels: sorted.map(d => d.sec),
+               datasets:[{ data: sorted.map(d => +d.ret.toFixed(3)),
+                           backgroundColor: sorted.map(d => d.color),
+                           borderWidth:0, borderRadius:4 }]},
+        options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+                  plugins:{ legend:{display:false},
+                             tooltip:{ callbacks:{ label: ctx => (ctx.parsed.x >= 0 ? '+' : '') + ctx.parsed.x.toFixed(2) + '%' }}},
+                  scales:{ x:{ ticks:{ callback: v => (v>0?'+':'')+v.toFixed(1)+'%', font:{size:11}}, grid:{color:'#f5f5f4'}},
+                           y:{ ticks:{ font:{size:11,weight:'500'}}, grid:{display:false}}}}
+      });
+    } else {
+      document.getElementById('sp').innerHTML = '<div class="cloading" style="color:#ddd;font-size:12px">Sector returns available from Jun 26</div>';
+    }
+
+    // Daily change / return by stock
+    if (barD.length) {
+      const sorted = [...barD].sort((a,b)=>b.v-a.v);
+      document.getElementById('bt').textContent = isFinal ? 'Final Return by Stock (%)' : isActive ? 'Return by Stock (%)' : 'Daily Change by Stock (%)';
+      document.getElementById('bw').innerHTML = '<canvas id="bc"></canvas>';
+      new Chart(document.getElementById('bc'), {
+        type:'bar',
+        data:{ labels:sorted.map(d=>d.t),
+               datasets:[{data:sorted.map(d=>+d.v.toFixed(3)),backgroundColor:sorted.map(d=>d.v>=0?'#16a34a':'#dc2626'),borderWidth:0,borderRadius:4}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+                 scales:{y:{ticks:{callback:v=>v.toFixed(1)+'%',font:{size:11}},grid:{color:'#f5f5f4'}},
+                         x:{ticks:{font:{size:12,weight:'600'}},grid:{display:false}}}}
+      });
+    }
+  });
+}
+
+run();
+</script>
+</body>
+</html>
