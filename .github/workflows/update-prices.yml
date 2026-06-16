@@ -1,0 +1,45 @@
+name: Update Portfolio Prices
+
+# Runs automatically at 8:30 PM UTC (4:30 PM ET) on June 26 and July 24
+# Also runnable manually from the GitHub Actions tab at any time
+
+on:
+  schedule:
+    - cron: '30 20 26 6 *'   # June 26  at 4:30 PM ET (8:30 PM UTC)
+    - cron: '30 20 24 7 *'   # July 24  at 4:30 PM ET (8:30 PM UTC)
+  workflow_dispatch:
+    inputs:
+      price_field:
+        description: 'Which prices to set (for manual runs)'
+        required: true
+        default: 'ENTRY'
+        type: choice
+        options: [ENTRY, EVAL]
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed so the Action can push the commit
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch closing prices and update index.html
+        env:
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+          PRICE_FIELD: ${{ inputs.price_field }}
+        run: node update-prices.js
+
+      - name: Commit and push updated index.html
+        run: |
+          git config user.name  "Portfolio Bot"
+          git config user.email "actions@github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No changes to commit (prices may have already been set)."
+          else
+            git commit -m "Set ${{ inputs.price_field || 'scheduled' }} prices $(date -u +%Y-%m-%d)"
+            git push
+          fi
