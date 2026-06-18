@@ -1,6 +1,7 @@
 // GitHub Action script — runs on June 26 and July 24 after market close
-// Fetches closing prices from Finnhub and writes them into index.html
-// Then git commits → Netlify auto-deploys the updated file
+// On June 26: fetches closing prices, calculates share counts from $950k budget,
+//             writes ENTRY prices + ENTRY_SHARES into index.html → Netlify auto-deploys
+// On July 24: fetches closing prices, writes EVAL prices into index.html → Netlify auto-deploys
 
 const https = require('https');
 const fs    = require('fs');
@@ -20,6 +21,19 @@ const TICKERS = {
   CNR:  'CNI',   // Canadian National Railway trades on NYSE as CNI
 };
 
+// Budget for each stock — must sum to $950,000
+// On June 26, share counts = floor(allocation / closing_price) so invested ≈ $950k exactly
+const ALLOCATION = {
+  MSFT: 63333,
+  AAPL: 63333,
+  NVDA: 63333,
+  JPM:  95000,
+  RY:   95000,
+  COST: 190000,
+  JNJ:  190000,
+  CNR:  190000,
+};
+
 function fetchPrice(symbol) {
   return new Promise((resolve) => {
     const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${KEY}`;
@@ -36,6 +50,16 @@ function fetchPrice(symbol) {
   });
 }
 
+function updateLine(lines, prefix, replacement) {
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim().startsWith(prefix)) {
+      lines[i] = replacement;
+      return true;
+    }
+  }
+  return false;
+}
+
 async function main() {
   // Determine ET date (UTC-4 during EDT)
   const now = new Date();
@@ -43,12 +67,11 @@ async function main() {
   const month = et.getUTCMonth() + 1;
   const day   = et.getUTCDate();
 
-  // Decide which field to update — ENTRY on Jun 26, EVAL on Jul 24
   let field = null;
   if (month === 6 && day === 26) field = 'ENTRY';
   if (month === 7 && day === 24) field = 'EVAL';
 
-  // Allow manual override via env var (for testing: PRICE_FIELD=ENTRY node update-prices.js)
+  // Allow manual override (PRICE_FIELD=ENTRY node update-prices.js)
   if (process.env.PRICE_FIELD) field = process.env.PRICE_FIELD.toUpperCase();
 
   if (!field) {
@@ -63,36 +86,56 @@ async function main() {
     const price = await fetchPrice(sym);
     prices[ticker] = price;
     console.log(`  ${ticker.padEnd(5)} (${sym.padEnd(5)}) → ${price != null ? '$' + price.toFixed(2) : 'FAILED'}`);
-    await new Promise(r => setTimeout(r, 300)); // stay within Finnhub free-tier rate limit
+    await new Promise(r => setTimeout(r, 300));
   }
 
-  // Build the replacement line, e.g.:
-  //   const ENTRY = { MSFT:420.12, AAPL:198.34, ... };
-  const vals = Object.keys(TICKERS).map(t => `${t}:${prices[t] ?? 'null'}`).join(', ');
-  const replacement = `const ${field} = { ${vals} };`;
-
-  // Read index.html and replace the matching line
   const html  = fs.readFileSync('index.html', 'utf8');
   const lines = html.split('\n');
-  const prefix = `const ${field} =`;
-  let updated = false;
 
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().startsWith(prefix)) {
-      lines[i] = replacement;
-      updated = true;
-      break;
-    }
+  // Always update the price field (ENTRY or EVAL)
+  const priceVals = Object.keys(TICKERS).map(t => `${t}:${prices[t] ?? 'null'}`).join(', ');
+  const priceReplacement = `const ${field} = { ${priceVals} };`;
+  if (!updateLine(lines, `const ${field} =`, priceReplacement)) {
+    console.error(`Could not find "const ${field} =" in index.html`); process.exit(1);
   }
+  console.log(`\n✓ ${field} prices written`);
 
-  if (!updated) {
-    console.error(`\nError: Could not find "${prefix}" line in index.html.`);
-    process.exit(1);
+  // On June 26 only: also calculate and write share counts
+  // shares = floor(allocation / closing_price) → total invested ≈ $950,000
+  if (field === 'ENTRY') {
+    const shares = {};
+    let totalInvested = 0;
+
+    console.log('\nCalculating share counts based on Jun 26 closing prices:\n');
+    for (const [ticker] of Object.entries(TICKERS)) {
+      const price = prices[ticker];
+      const alloc = ALLOCATION[ticker];
+      if (price != null) {
+        shares[ticker] = Math.floor(alloc / price);
+        const cost = shares[ticker] * price;
+        totalInvested += cost;
+        console.log(`  ${ticker.padEnd(5)} → ${shares[ticker]} shares × $${price.toFixed(2)} = $${cost.toFixed(2)} (budget $${alloc})`);
+      } else {
+        shares[ticker] = null;
+        console.log(`  ${ticker.padEnd(5)} → FAILED to fetch price, keeping planned count`);
+      }
+    }
+
+    const cash = 1000000 - totalInvested;
+    console.log(`\n  Total invested: $${totalInvested.toFixed(2)}`);
+    console.log(`  Cash remaining: $${cash.toFixed(2)}`);
+    console.log(`  Net worth at entry: $${(totalInvested + cash).toFixed(2)}`);
+
+    const shareVals = Object.keys(TICKERS).map(t => `${t}:${shares[t] ?? 'null'}`).join(', ');
+    const sharesReplacement = `const ENTRY_SHARES = { ${shareVals} };`;
+    if (!updateLine(lines, 'const ENTRY_SHARES =', sharesReplacement)) {
+      console.error('Could not find "const ENTRY_SHARES =" in index.html'); process.exit(1);
+    }
+    console.log('✓ ENTRY_SHARES written');
   }
 
   fs.writeFileSync('index.html', lines.join('\n'), 'utf8');
-  console.log(`\n✓ ${field} prices written to index.html`);
-  console.log('  Git will commit this change → Netlify will auto-deploy.\n');
+  console.log('\n✓ index.html updated — Git will commit → Netlify will auto-deploy.\n');
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

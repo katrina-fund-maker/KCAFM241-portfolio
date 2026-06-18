@@ -68,7 +68,7 @@ footer { font-size:11px; color:#ccc; line-height:1.7; padding-top:8px; border-to
   </div>
   <div class="header-right">
     <div id="as-of">Loading…</div>
-    <div class="badge">Data: Finnhub (real-time)</div>
+    <div class="badge">Data: bigdata.com (real-time)</div>
   </div>
 </div>
 
@@ -92,7 +92,7 @@ footer { font-size:11px; color:#ccc; line-height:1.7; padding-top:8px; border-to
     <div class="grid4">
       <div class="card"><div class="clabel">Invested Value</div><div class="cval neu" id="c-inv">—</div><div class="csub">8 equity positions (USD)</div></div>
       <div class="card"><div class="clabel">Total Return</div><div class="cval neu" id="c-ret">—</div><div class="csub" id="c-ret-sub">Tracking begins Jun 26</div></div>
-      <div class="card"><div class="clabel">Cash Position</div><div class="cval neu">$50,000</div><div class="csub">5.0% of capital</div></div>
+      <div class="card"><div class="clabel">Cash Position</div><div class="cval neu" id="c-cash">$50,000</div><div class="csub" id="c-cash-sub">5.0% of capital</div></div>
       <div class="card"><div class="clabel">Net Worth</div><div class="cval neu" id="c-nw">—</div><div class="csub" id="c-nw-sub">equity + cash</div></div>
     </div>
 
@@ -138,7 +138,7 @@ footer { font-size:11px; color:#ccc; line-height:1.7; padding-top:8px; border-to
     <footer>
       RY (Royal Bank of Canada) and CNR (Canadian National Railway) use NYSE listings (RY, CNI) priced in USD.
       Entry prices recorded at Jun 26, 2026 market close. Final evaluation at Jul 24, 2026 market close.
-      Live prices: Finnhub. For AFM 241 simulation purposes only — not investment advice.
+      Live prices: bigdata.com. For AFM 241 simulation purposes only — not investment advice.
     </footer>
   </div>
 </div>
@@ -146,9 +146,10 @@ footer { font-size:11px; color:#ccc; line-height:1.7; padding-top:8px; border-to
 <script>
 const KEY = 'd8onippr01qn89hsefsgd8onippr01qn89hseft0';
 
-// ── Stored prices — updated automatically by GitHub Action on Jun 26 and Jul 24 ──
-const ENTRY = { MSFT:null, AAPL:null, NVDA:null, JPM:null, RY:null, COST:null, JNJ:null, CNR:null };
-const EVAL  = { MSFT:null, AAPL:null, NVDA:null, JPM:null, RY:null, COST:null, JNJ:null, CNR:null };
+// ── Stored prices & shares — updated automatically by GitHub Action on Jun 26 and Jul 24 ──
+const ENTRY        = { MSFT:null, AAPL:null, NVDA:null, JPM:null, RY:null, COST:null, JNJ:null, CNR:null };
+const EVAL         = { MSFT:null, AAPL:null, NVDA:null, JPM:null, RY:null, COST:null, JNJ:null, CNR:null };
+const ENTRY_SHARES = { MSFT:null, AAPL:null, NVDA:null, JPM:null, RY:null, COST:null, JNJ:null, CNR:null };
 
 const H = [
   { t:'MSFT', s:'MSFT', n:'Microsoft Corp.',           sh:160,  sec:'Technology',       al:63333  },
@@ -228,9 +229,11 @@ async function run() {
   H.forEach((h, i) => {
     const { p, dp } = quotes[i];
     const ep = ENTRY[h.t], ev = EVAL[h.t];
-    const disp = isFinal ? ev : p;
-    const curUSD = disp != null ? h.sh * disp : null;
-    const entUSD = ep   != null ? h.sh * ep   : h.al;
+    // Use shares set by GitHub Action on Jun 26; fall back to planned counts before then
+    const sh = ENTRY_SHARES[h.t] != null ? ENTRY_SHARES[h.t] : h.sh;
+    const disp   = isFinal ? ev : p;
+    const curUSD = disp != null ? sh * disp : null;
+    const entUSD = ep   != null ? sh * ep   : h.al;
     const ret    = curUSD != null && ep != null ? ((curUSD - entUSD) / entUSD * 100) : null;
 
     totCur += curUSD ?? h.al;
@@ -249,7 +252,7 @@ async function run() {
     tr.innerHTML = `
       <td><div class="tk">${h.t}</div><div class="cn">${h.n}</div></td>
       <td><span class="sbadge" style="background:${c}18;color:${c}">${h.sec}</span></td>
-      <td>${h.sh.toLocaleString()}</td>
+      <td>${sh.toLocaleString()}</td>
       <td>${ep!=null?f$(ep):'<span class="dim">Set Jun 26</span>'}</td>
       <td>${disp!=null?f$(disp):'<span class="dim">—</span>'}</td>
       <td class="${(dp??0)>=0?'pos':'neg'}">${isFinal?'<span class="dim">—</span>':fP(dp,true)}</td>
@@ -271,7 +274,11 @@ async function run() {
     re.className = 'cval ' + (totRetP >= 0 ? 'pos' : 'neg');
     document.getElementById('c-ret-sub').textContent = fK(totRet) + ' absolute';
   }
-  document.getElementById('c-nw').textContent = fK(totCur + 50000);
+  // Cash = whatever is left after actual entry purchases (≈$50k, exact once Jun 26 prices are set)
+  const actualCash = (isActive || isFinal) ? Math.round(1000000 - totEnt) : 50000;
+  document.getElementById('c-cash').textContent = fK(actualCash);
+  document.getElementById('c-cash-sub').textContent = (actualCash / 1000000 * 100).toFixed(1) + '% of capital';
+  document.getElementById('c-nw').textContent = fK(totCur + actualCash);
   if (isFinal) document.getElementById('c-nw-sub').textContent = 'Final net worth Jul 24';
 
   // Show content immediately — don't wait for charts
