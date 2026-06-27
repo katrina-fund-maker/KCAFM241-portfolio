@@ -199,15 +199,21 @@ function switchTab(tab) {
 async function run() {
   const quotes = await Promise.all(H.map(h => quote(h.s)));
 
-  const isFinal  = Object.values(EVAL).some(v => v != null);
-  const isActive = Object.values(ENTRY).some(v => v != null);
+  const isActive  = Object.values(ENTRY).some(v => v != null);
+  const evalSet   = Object.values(EVAL).some(v => v != null);
+  const END_DATE  = new Date('2026-07-24T20:30:00Z'); // 4:30 PM ET = market close + buffer
+  const pastEnd   = new Date() >= END_DATE;
+  // isFinal = GitHub Action wrote EVAL prices, OR we're past end date (date-based fallback)
+  const isFinal   = evalSet || (pastEnd && isActive);
 
   // Banner
   const bn = document.getElementById('banner');
   bn.style.display = 'block';
   if (isFinal) {
     bn.className = 'banner final';
-    bn.textContent = '✦ Evaluation period ended Jul 24, 2026 — final returns shown.';
+    bn.textContent = evalSet
+      ? '✦ Evaluation period ended Jul 24, 2026 — final returns locked in.'
+      : '✦ Evaluation period ended Jul 24, 2026 — returns shown at Jul 24 market close.';
   } else if (isActive) {
     bn.className = 'banner active';
     bn.textContent = '● Tracking active — returns vs. Jun 26 closing prices.';
@@ -217,7 +223,8 @@ async function run() {
   }
 
   const now = new Date();
-  document.getElementById('as-of').textContent = isFinal ? 'Final: Jul 24, 2026'
+  document.getElementById('as-of').textContent = isFinal
+    ? (evalSet ? 'Final: Jul 24, 2026' : 'Final (Jul 24 close)')
     : 'Live · ' + now.toLocaleString('en-CA',{timeZone:'America/Toronto',dateStyle:'medium',timeStyle:'short'}) + ' ET';
   document.getElementById('ph').textContent = isFinal ? 'Price Jul 24' : 'Live Price';
 
@@ -228,7 +235,9 @@ async function run() {
 
   H.forEach((h, i) => {
     const { p, dp } = quotes[i];
-    const ep = ENTRY[h.t], ev = EVAL[h.t];
+    const ep = ENTRY[h.t];
+    // If GitHub Action wrote EVAL → use it. If past end date → use live price as final. Otherwise null.
+    const ev = EVAL[h.t] != null ? EVAL[h.t] : (pastEnd ? p : null);
     // Use shares set by GitHub Action on Jun 26; fall back to planned counts before then
     const sh = ENTRY_SHARES[h.t] != null ? ENTRY_SHARES[h.t] : h.sh;
     const disp   = isFinal ? ev : p;
